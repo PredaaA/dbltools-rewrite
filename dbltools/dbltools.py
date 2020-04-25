@@ -319,7 +319,7 @@ class DblTools(commands.Cog):
                     humanize_number(config["daily_rewards"]["weekend_bonus_amount"]), credits_name
                 )
             title = _(
-                "**Upvote {bot_name} every 12 hours to earn {amount} {currency}{weekend}!**"
+                "**Click here to upvote {bot_name} every 12 hours to earn {amount} {currency}{weekend}!**"
             ).format(
                 bot_name=self.bot.user.name,
                 amount=humanize_number(config["daily_rewards"]["amount"]),
