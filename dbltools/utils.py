@@ -1,4 +1,5 @@
 from redbot.core.bot import Red
+from redbot.core import bank, commands
 from redbot.core.i18n import Translator
 
 import aiohttp
@@ -7,6 +8,21 @@ from datetime import datetime
 
 
 _ = Translator("DblTools", __file__)
+
+
+def guild_only_check():
+    # Used for payday command
+    # From https://github.com/Cog-Creators/Red-DiscordBot/blob/V3/develop/redbot/cogs/economy/economy.py#L85
+    async def pred(ctx: commands.Context):
+        if await bank.is_global():
+            return True
+        elif not await bank.is_global() and ctx.guild is not None:
+            return True
+        else:
+            return False
+
+    return commands.check(pred)
+
 
 intro_msg = _(
     "To use that cog, you need a Top.gg token. "

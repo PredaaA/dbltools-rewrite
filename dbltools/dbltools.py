@@ -15,10 +15,11 @@ import time
 import aiohttp
 import logging
 import asyncio
+import calendar
 from typing import Mapping
 from datetime import datetime, timedelta
 
-from .utils import check_weekend, download_widget, error_message, intro_msg
+from .utils import check_weekend, download_widget, error_message, guild_only_check, intro_msg
 
 
 log = logging.getLogger("red.predacogs.DblTools")
@@ -51,6 +52,7 @@ class DblTools(commands.Cog):
         )
         self.config.register_user(next_daily=0)
 
+        self.economy_cog = None
         self.session = aiohttp.ClientSession()
         self._init_task = bot.loop.create_task(self.initialize())
         self._post_stats_task = self.bot.loop.create_task(self.update_stats())
@@ -83,9 +85,17 @@ class DblTools(commands.Cog):
             self._init_task.cancel()
         if self._post_stats_task:
             self._post_stats_task.cancel()
+        payday_command = self.bot.get_command("payday")
+        if payday_command:
+            self.bot.remove_command(payday_command.name)
 
     async def cog_before_invoke(self, ctx: commands.Context):
         await self._ready_event.wait()
+        if ctx.command.name == "payday":
+            cog = self.bot.get_cog("Economy")
+            if not cog:
+                return
+            self.economy_cog = cog
 
     async def update_stats(self):
         await self.bot.wait_until_ready()
@@ -243,14 +253,18 @@ class DblTools(commands.Cog):
             try:
                 data = await self.dbl.get_bot_info(bot.id)
             except dbl.NotFound:
-                return await ctx.send(_("It seems like that bot isn't validated on Top.gg."))
+                return await ctx.send(_("That bot isn't validated on Top.gg."))
             # TODO
 
     @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(1, 1, commands.BucketType.user)
     async def dblwidget(self, ctx: commands.Context, *, bot: discord.User):
-        """Send the widget of a chosen bot on Top.gg."""
+        """
+        Send the widget of a chosen bot on Top.gg.
+
+        `bot`: Can be a mention or ID of a bot.
+        """
         if bot is None:
             return await ctx.send(_("This is not a valid Discord user."))
         if not bot.bot:
@@ -267,12 +281,12 @@ class DblTools(commands.Cog):
                 color=discord.Color.blurple(),
                 description=bold(_("[Top.gg Page]({})")).format(f"https://top.gg/bot/{bot.id}"),
             )
-            if not file:
-                em.set_image(url=url)
-            else:
-                filename = f"{bot.id}_widget_{int(time.time())}.png"
+            if file:
+                filename = f"{bot.id}_topggwidget_{int(time.time())}.png"
                 em.set_image(url=f"attachment://{filename}")
-        return await ctx.send(file=discord.File(file, filename=filename), embed=em)
+                return await ctx.send(file=discord.File(file, filename=filename), embed=em)
+            em.set_image(url=url)
+            return await ctx.send(embed=em)
 
     @commands.command()
     @commands.cooldown(1, 1, commands.BucketType.user)
@@ -288,8 +302,8 @@ class DblTools(commands.Cog):
             delta = humanize_timedelta(seconds=next_daily - cur_time) or "1 second"
             msg = author.mention + _(
                 " Too soon. You have already claim your daily reward!\n"
-                "Wait **{time}** for the next one."
-            ).format(time=delta)
+                "Wait **{}** for the next one."
+            ).format(delta)
             if not await ctx.embed_requested():
                 await ctx.send(msg)
             else:
@@ -371,3 +385,146 @@ class DblTools(commands.Cog):
         else:
             # TODO Support not global banks.
             await ctx.send("This command does not support banks per server yet.")
+
+    @guild_only_check()
+    @commands.command()
+    async def payday(self, ctx: commands.Context):
+        """Get some free currency."""
+        # From https://github.com/Cog-Creators/Red-DiscordBot/blob/V3/develop/redbot/cogs/economy/economy.py#L347
+        author = ctx.author
+        guild = ctx.guild
+
+        cur_time = calendar.timegm(ctx.message.created_at.utctimetuple())
+        credits_name = await bank.get_currency_name(ctx.guild)
+        daily_config = await self.config.all()
+        daily_message = "\n"
+        if daily_config["daily_rewards"]["toggled"]:
+            if not await self.dbl.get_user_vote(author.id):
+                weekend = (
+                    check_weekend() and daily_config["daily_rewards"]["weekend_bonus_toggled"]
+                )
+                maybe_weekend_bonus = ""
+                if weekend:
+                    maybe_weekend_bonus = _(" and the week-end bonus of {} {}").format(
+                        humanize_number(daily_config["daily_rewards"]["weekend_bonus_amount"]),
+                        credits_name,
+                    )
+                daily_message = _(
+                    "Upvote {bot_name} every 12 hours to earn {daily_amount} {currency}{weekend}!\n\n"
+                ).format(
+                    bot_name=self.bot.user.name,
+                    daily_amount=daily_config["daily_rewards"]["amount"],
+                    currency=credits_name,
+                    weekend=maybe_weekend_bonus,
+                )
+            else:
+                next_daily = await self.config.user(author).next_daily()
+                delta = humanize_timedelta(seconds=next_daily - cur_time) or "1 second"
+                daily_message = _("Your next daily reward will be available in {}").format(delta)
+
+        if await bank.is_global():  # Role payouts will not be used
+
+            # Gets the latest time the user used the command successfully and adds the global payday time
+            next_payday = (
+                await self.economy_cog.config.user(author).next_payday()
+                + await self.economy_cog.config.PAYDAY_TIME()
+            )
+            if cur_time >= next_payday:
+                try:
+                    await bank.deposit_credits(author, 50)
+                except errors.BalanceTooHigh as exc:
+                    await bank.set_balance(author, exc.max_balance)
+                    await ctx.maybe_send_embed(
+                        _(
+                            "You've reached the maximum amount of {currency}!"
+                            "Please spend some more \N{GRIMACING FACE}\n\n"
+                            "You currently have {new_balance} {currency}."
+                        ).format(
+                            currency=credits_name, new_balance=humanize_number(exc.max_balance)
+                        )
+                    )
+                    return
+                # Sets the current time as the latest payday
+                await self.economy_cog.config.user(author).next_payday.set(cur_time)
+
+                pos = await bank.get_leaderboard_position(author)
+                await ctx.maybe_send_embed(
+                    _(
+                        "{author.mention} Here, take some {currency}. "
+                        "Enjoy! (+{amount} {currency}!)\n\n"
+                        "You currently have {new_balance} {currency}.\n{daily_message}"
+                        "You are currently #{pos} on the global leaderboard!"
+                    ).format(
+                        author=author,
+                        currency=credits_name,
+                        amount=humanize_number(50),
+                        new_balance=humanize_number(await bank.get_balance(author)),
+                        daily_message=daily_message,
+                        pos=humanize_number(pos) if pos else pos,
+                    )
+                )
+
+            else:
+                dtime = self.economy_cog.display_time(next_payday - cur_time)
+                await ctx.maybe_send_embed(
+                    _(
+                        "{author.mention} Too soon. For your next payday you have to wait {time}."
+                    ).format(author=author, time=dtime)
+                )
+        else:
+
+            # Gets the users latest successfully payday and adds the guilds payday time
+            next_payday = (
+                await self.economy_cog.config.member(author).next_payday()
+                + await self.economy_cog.config.guild(guild).PAYDAY_TIME()
+            )
+            if cur_time >= next_payday:
+                credit_amount = await self.economy_cog.config.guild(guild).PAYDAY_CREDITS()
+                for role in author.roles:
+                    role_credits = await self.economy_cog.config.role(
+                        role
+                    ).PAYDAY_CREDITS()  # Nice variable name
+                    if role_credits > credit_amount:
+                        credit_amount = role_credits
+                try:
+                    await bank.deposit_credits(author, credit_amount)
+                except errors.BalanceTooHigh as exc:
+                    await bank.set_balance(author, exc.max_balance)
+                    await ctx.maybe_send_embed(
+                        _(
+                            "You've reached the maximum amount of {currency}! "
+                            "Please spend some more \N{GRIMACING FACE}\n\n"
+                            "You currently have {new_balance} {currency}."
+                        ).format(
+                            currency=credits_name, new_balance=humanize_number(exc.max_balance)
+                        )
+                    )
+                    return
+
+                # Sets the latest payday time to the current time
+                next_payday = cur_time
+
+                await self.economy_cog.config.member(author).next_payday.set(next_payday)
+                pos = await bank.get_leaderboard_position(author)
+                await ctx.maybe_send_embed(
+                    _(
+                        "{author.mention} Here, take some {currency}. "
+                        "Enjoy! (+{amount} {currency}!)\n\n"
+                        "You currently have {new_balance} {currency}.\n{daily_message}"
+                        "You are currently #{pos} on the global leaderboard!"
+                    ).format(
+                        author=author,
+                        currency=credits_name,
+                        amount=humanize_number(credit_amount),
+                        new_balance=humanize_number(await bank.get_balance(author)),
+                        daily_message=daily_message,
+                        pos=humanize_number(pos) if pos else pos,
+                    )
+                )
+            else:
+                dtime = self.economy_cog.display_time(next_payday - cur_time)
+                await ctx.maybe_send_embed(
+                    _(
+                        "{author.mention} Too soon. For your next payday you have to wait {time}."
+                    ).format(author=author, time=dtime)
+                )
