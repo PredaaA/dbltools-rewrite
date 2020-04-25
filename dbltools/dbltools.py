@@ -420,7 +420,7 @@ class DblTools(commands.Cog):
             else:
                 next_daily = await self.config.user(author).next_daily()
                 delta = humanize_timedelta(seconds=next_daily - cur_time) or "1 second"
-                daily_message = _("Your next daily reward will be available in {}").format(delta)
+                daily_message = _("Your next daily reward will be available in {}\n\n").format(delta)
 
         if await bank.is_global():  # Role payouts will not be used
 
