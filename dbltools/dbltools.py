@@ -59,7 +59,7 @@ class DblTools(commands.Cog):
         key = (await self.bot.get_shared_api_tokens("dbl")).get("api_key")
         try:
             client = dbl.DBLClient(self.bot, key)
-            await client.get_guild_count() # FIXME temp
+            # await client.get_guild_count() # FIXME temp
         except (dbl.Unauthorized, dbl.UnauthorizedDetected):
             await client.close()
             return await self.bot.send_to_owners(
@@ -101,7 +101,7 @@ class DblTools(commands.Cog):
             return
         try:
             client = dbl.DBLClient(self.bot, api_tokens.get("api_key"))
-            await client.get_guild_count() # FIXME temp
+            # await client.get_guild_count() # FIXME temp
         except (dbl.Unauthorized, dbl.UnauthorizedDetected):
             await client.close()
             return await self.bot.send_to_owners(
@@ -195,7 +195,7 @@ class DblTools(commands.Cog):
         """Set the amount of currency that users will receive on daily rewards."""
         if not amount:
             return await ctx.send_help()
-        if amount >= bank.get_max_balance():
+        if amount >= await bank.get_max_balance():
             return await ctx.send(_("The amount needs to be lower than bank maximum balance."))
         await self.config.daily_rewards.set_raw("amount", value=amount)
         await ctx.send(_("Daily rewards amount set to {}").format(amount))
@@ -213,7 +213,7 @@ class DblTools(commands.Cog):
         """Set the amount of currency that users will receive on week-end bonus."""
         if not amount:
             return await ctx.send_help()
-        if amount >= bank.get_max_balance():
+        if amount >= await bank.get_max_balance():
             return await ctx.send(_("The amount needs to be lower than bank maximum balance."))
         await self.config.daily_rewards.set_raw("weekend_bonus_amount", value=amount)
         await ctx.send(_("Weekend bonus amount set to {}").format(amount))
