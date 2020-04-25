@@ -12,12 +12,13 @@ from redbot.core.utils.chat_formatting import (
 
 import dbl
 import time
+import aiohttp
 import logging
 import asyncio
 from typing import Mapping
 from datetime import datetime, timedelta
 
-from .utils import check_weekend, error_message, intro_msg
+from .utils import check_weekend, download_widget, error_message, intro_msg
 
 
 log = logging.getLogger("red.predacogs.DblTools")
@@ -50,6 +51,7 @@ class DblTools(commands.Cog):
         )
         self.config.register_user(next_daily=0)
 
+        self.session = aiohttp.ClientSession()
         self._init_task = bot.loop.create_task(self.initialize())
         self._post_stats_task = self.bot.loop.create_task(self.update_stats())
         self._ready_event = asyncio.Event()
@@ -58,7 +60,7 @@ class DblTools(commands.Cog):
         await self.bot.wait_until_ready()
         key = (await self.bot.get_shared_api_tokens("dbl")).get("api_key")
         try:
-            client = dbl.DBLClient(self.bot, key)
+            client = dbl.DBLClient(self.bot, key, session=self.session)
             # await client.get_guild_count() # FIXME temp
         except (dbl.Unauthorized, dbl.UnauthorizedDetected):
             await client.close()
@@ -76,6 +78,7 @@ class DblTools(commands.Cog):
         self._ready_event.set()
 
     def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
         if self._init_task:
             self._init_task.cancel()
         if self._post_stats_task:
@@ -89,7 +92,9 @@ class DblTools(commands.Cog):
         if await self.config.post_guild_count():
             try:
                 await self.dbl.post_guild_count()
-                log.info("Posted server count ({})".format(self.dbl.guild_count()))
+                log.info(
+                    "Posted server count to Top.gg {} servers.".format(self.dbl.guild_count())
+                )
             except Exception as error:
                 log.exception(
                     "Failed to post server count\n{}: {}".format(type(error).__name__, error)
@@ -101,7 +106,7 @@ class DblTools(commands.Cog):
         if service_name != "dbl":
             return
         try:
-            client = dbl.DBLClient(self.bot, api_tokens.get("api_key"))
+            client = dbl.DBLClient(self.bot, api_tokens.get("api_key"), session=self.session)
             # await client.get_guild_count() # FIXME temp
         except (dbl.Unauthorized, dbl.UnauthorizedDetected):
             await client.close()
@@ -253,10 +258,21 @@ class DblTools(commands.Cog):
 
         async with ctx.typing():
             try:
-                data = await self.dbl.get_widget_large(bot.id)
+                await self.dbl.get_guild_count(bot.id)
+                url = await self.dbl.get_widget_large(bot.id)
             except dbl.NotFound:
-                return await ctx.send(_("It seems like that bot isn't validated on Top.gg."))
-            # TODO
+                return await ctx.send(_("That bot isn't validated on Top.gg."))
+            file = await download_widget(self.session, url)
+            em = discord.Embed(
+                color=discord.Color.blurple(),
+                description=bold(_("[Top.gg Page]({})")).format(f"https://top.gg/bot/{bot.id}"),
+            )
+            if not file:
+                em.set_image(url=url)
+            else:
+                filename = f"{bot.id}_widget_{int(time.time())}.png"
+                em.set_image(url=f"attachment://{filename}")
+        return await ctx.send(file=discord.File(file, filename=filename), embed=em)
 
     @commands.command()
     @commands.cooldown(1, 1, commands.BucketType.user)

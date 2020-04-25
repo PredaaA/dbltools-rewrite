@@ -1,11 +1,9 @@
 from redbot.core.bot import Red
 from redbot.core.i18n import Translator
 
+import aiohttp
+from io import BytesIO
 from datetime import datetime
-
-
-def check_weekend():
-    return True if datetime.today().weekday() in [4, 5, 6] else False
 
 
 _ = Translator("DblTools", __file__)
@@ -25,3 +23,14 @@ error_message = _(
     "**5.** Use in DM `[p]set api dbl api_key your_api_key_here`\n"
     "**6.** There you go! You can now use DblTools cog."
 )
+
+
+def check_weekend():
+    return True if datetime.today().weekday() in [4, 5, 6] else False
+
+
+async def download_widget(session: aiohttp.ClientSession, url: str):
+    async with session.get(url) as resp:
+        if resp.status != 200:
+            return None
+        return BytesIO(await resp.read())
