@@ -125,12 +125,12 @@ class DblTools(commands.Cog):
         config = await self.config.all()
         if not member.guild.id == config["support_server_role"]["guild_id"]:
             return
-        if not config["support_server_info"]["role_id"]:
+        if not config["support_server_role"]["role_id"]:
             return
         if await self.dbl.get_user_vote(member.id):
             try:
                 await member.add_roles(
-                    member.guild.get_role(config["support_server_info"]["role_id"]),
+                    member.guild.get_role(config["support_server_role"]["role_id"]),
                     reason=f"Top.gg {self.bot.user.name} upvoter.",
                 )
             except discord.Forbidden:
@@ -158,7 +158,7 @@ class DblTools(commands.Cog):
 
     @dblset.group()
     @commands.guild_only()
-    async def rolereward(self, ctx: commands.Context, *, role: discord.Role):
+    async def rolereward(self, ctx: commands.Context):
         """Settings for role rewards."""
 
     @rolereward.command()
@@ -168,7 +168,7 @@ class DblTools(commands.Cog):
         async with self.config.all() as config:
             config["support_server_role"]["guild_id"] = ctx.guild.id
             config["support_server_role"]["role_id"] = role.id
-        await ctx.send(_("Role reward has been set to: `{}`").format(role.name))
+        await ctx.send(_("Role reward has been enabled and set to: `{}`").format(role.name))
 
     @rolereward.command()
     async def reset(self, ctx: commands.Context):
