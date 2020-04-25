@@ -323,24 +323,30 @@ class DblTools(commands.Cog):
 
             await self.config.user(author).next_daily.set(next_vote)
             maybe_weekend_bonus = (
-                _("And your week-end bonus, +{weekend_amount}!") if weekend else ""
+                _("And your week-end bonus, +{}!").format(humanize_number(weekend_amount))
+                if weekend
+                else ""
             )
-            title = author.mention + _(" Here is your daily bonus!")
+            title = _("Here is your daily bonus!")
             description = _(
                 "Take some {currency}. Enjoy! (+{amount} {currency}!){weekend}\n\n"
                 "You currently have {new_balance} {currency}.\n\n"
             ).format(
                 currency=credits_name,
-                amount=regular_amount,
+                amount=humanize_number(regular_amount),
                 weekend=maybe_weekend_bonus,
                 new_balance=await bank.get_balance(author),
             )
-            footer = _("You are currently #{} on the global leaderboard!").format(pos)
+            footer = _("You are currently #{} on the global leaderboard!").format(
+                humanize_number(pos)
+            )
             if not await ctx.embed_requested():
-                await ctx.send(f"{title} {description}\n\n{footer}")
+                await ctx.send(f"{author.mention} {title} {description}\n\n{footer}")
             else:
                 em = discord.Embed(
-                    color=await ctx.embed_color(), title=title, description=description
+                    color=await ctx.embed_color(),
+                    title=title,
+                    description=author.mention + description,
                 )
                 em.set_footer(text=footer)
                 await ctx.send(embed=em)
