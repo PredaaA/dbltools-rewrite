@@ -399,7 +399,9 @@ class DblTools(commands.Cog):
         daily_config = await self.config.all()
         daily_message = "\n"
         if daily_config["daily_rewards"]["toggled"]:
-            if not await self.dbl.get_user_vote(author.id):
+            next_daily = await self.config.user(author).next_daily()
+            last_vote = True if next_daily < int(time.time()) else False
+            if last_vote:
                 weekend = (
                     check_weekend() and daily_config["daily_rewards"]["weekend_bonus_toggled"]
                 )
@@ -418,9 +420,10 @@ class DblTools(commands.Cog):
                     weekend=maybe_weekend_bonus,
                 )
             else:
-                next_daily = await self.config.user(author).next_daily()
                 delta = humanize_timedelta(seconds=next_daily - cur_time) or "1 second"
-                daily_message = _("Your next daily reward will be available in {}\n\n").format(delta)
+                daily_message = _("Your next daily reward will be available in {}.\n\n").format(
+                    delta
+                )
 
         if await bank.is_global():  # Role payouts will not be used
 
@@ -468,7 +471,7 @@ class DblTools(commands.Cog):
                 dtime = self.economy_cog.display_time(next_payday - cur_time)
                 await ctx.maybe_send_embed(
                     _(
-                        "{author.mention} Too soon. For your next payday you have to wait {time}."
+                        "{author.mention} Too soon.\nFor your next payday you have to wait {time}."
                     ).format(author=author, time=dtime)
                 )
         else:
@@ -525,6 +528,6 @@ class DblTools(commands.Cog):
                 dtime = self.economy_cog.display_time(next_payday - cur_time)
                 await ctx.maybe_send_embed(
                     _(
-                        "{author.mention} Too soon. For your next payday you have to wait {time}."
+                        "{author.mention} Too soon.\nFor your next payday you have to wait {time}."
                     ).format(author=author, time=dtime)
                 )
