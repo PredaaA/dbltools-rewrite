@@ -237,7 +237,7 @@ class DblTools(commands.Cog):
 
     @commands.command()
     @commands.bot_has_permissions(embed_links=True)
-    @commands.cooldown(1, 1, commands.BucketType.user)
+    @commands.cooldown(1, 2, commands.BucketType.user)
     async def dblinfo(self, ctx: commands.Context, *, bot: discord.User):
         """
         Show information of a chosen bot on Top.gg.
@@ -254,7 +254,87 @@ class DblTools(commands.Cog):
                 data = await self.dbl.get_bot_info(bot.id)
             except dbl.NotFound:
                 return await ctx.send(_("That bot isn't validated on Top.gg."))
-            # TODO
+
+            cert_emoji = (
+                "<:dblCertified:392249976639455232>"
+                if self.bot.get_guild(264445053596991498)
+                else "\N{WHITE HEAVY CHECK MARK}"
+            )
+            fields = {
+                "description": (
+                    bold(_("Description:")) + box("\n{}\n").format(data["shortdesc"])
+                    if data["shortdesc"]
+                    else ""
+                ),
+                "tags": (
+                    bold(_("Tags:")) + box("\n{}\n\n").format(", ".join(data["tags"]))
+                    if data["tags"]
+                    else ""
+                ),
+                "certified": (
+                    bold(_("\nCertified!")) + f" {cert_emoji}\n" if data["certifiedBot"] else "\n"
+                ),
+                "prefixes": (
+                    bold(_("Prefix:")) + " {}\n".format(data["prefix"])
+                    if data.get("prefix")
+                    else ""
+                ),
+                "library": (
+                    bold(_("Library:")) + " {}\n".format(data["lib"]) if data.get("lib") else ""
+                ),
+                "servers": (
+                    bold(_("Server count:"))
+                    + " {}\n".format(humanize_number(data["server_count"]))
+                    if data.get("server_count")
+                    else ""
+                ),
+                "shards": (
+                    bold(_("Shard count:")) + " {}\n".format(humanize_number(data["shard_count"]))
+                    if data.get("shard_count")
+                    else ""
+                ),
+                "votes_month": (
+                    bold(_("Monthly votes:"))
+                    + (" {}\n".format(humanize_number(data.get("monthlyPoints", 0))))
+                ),
+                "votes_total": (
+                    bold(_("Total votes:"))
+                    + (" {}\n".format(humanize_number(data.get("points", 0))))
+                ),
+                "owners": (
+                    bold("{}: ").format(_("Owners") if len(data["owners"]) > 1 else _("Owner"))
+                    + ", ".join([str((self.bot.get_user(u))) for u in data["owners"]])
+                    + "\n"  # Thanks Slime :ablobcatsipsweats:
+                ),
+                "approval_date": (
+                    bold(_("Approval date:")) + " {}\n\n".format(str(data["date"]).split(".")[0])
+                ),
+                "dbl_page": _("[Top.gg Page]({})").format(f"https://top.gg/bot/{bot.id}"),
+                "invitation": (
+                    _(" • [Invitation link]({})").format(data["invite"])
+                    if data.get("invite")
+                    else ""
+                ),
+                "support_server": (
+                    _(" • [Support](https://discord.gg/{})").format(data["support"])
+                    if data.get("support")
+                    else ""
+                ),
+                "github": (
+                    _(" • [GitHub]({})").format(data["github"]) if data.get("github") else ""
+                ),
+                "website": (
+                    _(" • [Website]({})").format(data["website"]) if data.get("website") else ""
+                ),
+            }
+            description = [field for field in list(fields.values())]
+            em = discord.Embed(color=(await ctx.embed_colour()), description="".join(description))
+            em.set_author(
+                name=_("Top.gg info about {}:").format(data["username"]),
+                icon_url="https://cdn.discordapp.com/emojis/393548388664082444.gif",
+            )
+            em.set_thumbnail(url=bot.avatar_url_as(static_format="png"))
+            return await ctx.send(embed=em)
 
     @commands.command()
     @commands.bot_has_permissions(embed_links=True)
