@@ -303,7 +303,7 @@ class DblTools(commands.Cog):
                 ),
                 "owners": (
                     bold("{}: ").format(_("Owners") if len(data["owners"]) > 1 else _("Owner"))
-                    + ", ".join([str((self.bot.get_user(u))) for u in data["owners"]])
+                    + ", ".join([str((self.bot.get_user(int(u)))) for u in data["owners"]])
                     + "\n"  # Thanks Slime :ablobcatsipsweats:
                 ),
                 "approval_date": (
