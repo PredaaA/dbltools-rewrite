@@ -304,7 +304,6 @@ class DblTools(commands.Cog):
         regular_amount = config["daily_rewards"]["amount"]
         weekend_amount = config["daily_rewards"]["weekend_bonus_amount"]
         next_vote = int(datetime.timestamp(datetime.now() + timedelta(hours=12)))
-        pos = await bank.get_leaderboard_position(author)
         if await bank.is_global():
             try:
                 await bank.deposit_credits(
@@ -321,27 +320,28 @@ class DblTools(commands.Cog):
                 )
                 return
 
+            pos = await bank.get_leaderboard_position(author)
             await self.config.user(author).next_daily.set(next_vote)
             maybe_weekend_bonus = (
-                _("And your week-end bonus, +{}!").format(humanize_number(weekend_amount))
+                _("\nAnd your week-end bonus, +{}!").format(humanize_number(weekend_amount))
                 if weekend
                 else ""
             )
             title = _("Here is your daily bonus!")
             description = _(
-                "Take some {currency}. Enjoy! (+{amount} {currency}!){weekend}\n\n"
+                " Take some {currency}. Enjoy! (+{amount} {currency}!){weekend}\n\n"
                 "You currently have {new_balance} {currency}.\n\n"
             ).format(
                 currency=credits_name,
                 amount=humanize_number(regular_amount),
                 weekend=maybe_weekend_bonus,
-                new_balance=await bank.get_balance(author),
+                new_balance=humanize_number(await bank.get_balance(author)),
             )
             footer = _("You are currently #{} on the global leaderboard!").format(
                 humanize_number(pos)
             )
             if not await ctx.embed_requested():
-                await ctx.send(f"{author.mention} {title} {description}\n\n{footer}")
+                await ctx.send(f"{author.mention} {title}{description}\n\n{footer}")
             else:
                 em = discord.Embed(
                     color=await ctx.embed_color(),
