@@ -301,7 +301,7 @@ class DblTools(commands.Cog):
         if cur_time <= next_daily:
             delta = humanize_timedelta(seconds=next_daily - cur_time) or "1 second"
             msg = author.mention + _(
-                " Too soon. You have already claim your daily reward!\n"
+                " You are speeding! Slow down! You have already claim your daily reward!\n"
                 "Wait **{}** for the next one."
             ).format(delta)
             if not await ctx.embed_requested():
@@ -471,7 +471,7 @@ class DblTools(commands.Cog):
                 dtime = self.economy_cog.display_time(next_payday - cur_time)
                 await ctx.maybe_send_embed(
                     _(
-                        "{author.mention} Too soon.\nFor your next payday you have to wait {time}."
+                        "{author.mention} You are speeding! Slow down!\nFor your next payday you have to wait {time}."
                     ).format(author=author, time=dtime)
                 )
         else:
@@ -528,6 +528,6 @@ class DblTools(commands.Cog):
                 dtime = self.economy_cog.display_time(next_payday - cur_time)
                 await ctx.maybe_send_embed(
                     _(
-                        "{author.mention} Too soon.\nFor your next payday you have to wait {time}."
+                        "{author.mention} You are speeding! Slow down!\nFor your next payday you have to wait {time}."
                     ).format(author=author, time=dtime)
                 )
