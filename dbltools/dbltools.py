@@ -283,8 +283,8 @@ class DblTools(commands.Cog):
         if not await self.dbl.get_user_vote(author.id):
             maybe_weekend_bonus = ""
             if weekend:
-                maybe_weekend_bonus = _(" and the week-end bonus of {}").format(
-                    humanize_number(config["daily_rewards"]["weekend_bonus_amount"])
+                maybe_weekend_bonus = _(" and the week-end bonus of {} {}").format(
+                    humanize_number(config["daily_rewards"]["weekend_bonus_amount"]), credits_name
                 )
             title = _(
                 "**Upvote {bot_name} every 12 hours to earn {amount} {currency}{weekend}!**"
