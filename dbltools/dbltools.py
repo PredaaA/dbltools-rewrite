@@ -149,6 +149,7 @@ class DblTools(commands.Cog):
         """Group commands for settings of DblTools cog."""
 
     @dblset.command()
+    @checks.is_owner()
     async def poststats(self, ctx: commands.Context):
         """Set if you want to send your bot stats (Guilds and shards count) to Top.gg API."""
         toggled = await self.config.post_guild_count()
