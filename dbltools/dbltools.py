@@ -156,12 +156,12 @@ class DblTools(commands.Cog):
         msg = _("Daily command enabled.") if not toggled else _("Daily command disabled.")
         await ctx.send(msg)
 
-    @dblset.group()
+    @dblset.group(aliases=["rolereward"])
     @commands.guild_only()
-    async def rolereward(self, ctx: commands.Context):
+    async def rolerewards(self, ctx: commands.Context):
         """Settings for role rewards."""
 
-    @rolereward.command()
+    @rolerewards.command()
     @commands.bot_has_permissions(manage_roles=True)
     async def role(self, ctx: commands.Context, *, role: discord.Role):
         """Set the role that will be added to new users if they have upvoted for your bot."""
@@ -170,7 +170,7 @@ class DblTools(commands.Cog):
             config["support_server_role"]["role_id"] = role.id
         await ctx.send(_("Role reward has been enabled and set to: `{}`").format(role.name))
 
-    @rolereward.command()
+    @rolerewards.command()
     async def reset(self, ctx: commands.Context):
         """Reset current role rewards setup."""
         async with self.config.all() as config:
@@ -178,7 +178,7 @@ class DblTools(commands.Cog):
             config["support_server_role"]["role_id"] = None
         await ctx.tick()
 
-    @dblset.group()
+    @dblset.group(aliases=["dailyreward"])
     async def dailyrewards(self, ctx: commands.Context):
         """Settings for daily rewards."""
 
