@@ -284,13 +284,13 @@ class DblTools(commands.Cog):
             maybe_weekend_bonus = ""
             if weekend:
                 maybe_weekend_bonus = _(" and the week-end bonus of {}").format(
-                    config["daily_rewards"]["weekend_bonus_amount"]
+                    humanize_number(config["daily_rewards"]["weekend_bonus_amount"])
                 )
             title = _(
                 "**Upvote {bot_name} every 12 hours to earn {amount} {currency}{weekend}!**"
             ).format(
                 bot_name=self.bot.user.name,
-                amount=config["daily_rewards"]["amount"],
+                amount=humanize_number(config["daily_rewards"]["amount"]),
                 currency=credits_name,
                 weekend=maybe_weekend_bonus,
             )
