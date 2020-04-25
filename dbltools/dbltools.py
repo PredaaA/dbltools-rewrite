@@ -85,6 +85,7 @@ class DblTools(commands.Cog):
         await self._ready_event.wait()
 
     async def update_stats(self):
+        await self.bot.wait_until_ready()
         if await self.config.post_guild_count:
             try:
                 await self.dbl.post_guild_count()
