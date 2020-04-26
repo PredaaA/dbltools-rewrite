@@ -30,6 +30,7 @@ from .utils import check_weekend, download_widget, error_message, guild_only_che
 log = logging.getLogger("red.predacogs.DblTools")
 _ = Translator("DblTools", __file__)
 
+
 @cog_i18n(_)
 class DblTools(commands.Cog):
     """Tools for Top.gg API."""
@@ -496,9 +497,7 @@ class DblTools(commands.Cog):
             weekend=maybe_weekend_bonus,
             new_balance=humanize_number(await bank.get_balance(author)),
         )
-        footer = _("You are currently #{} on the global leaderboard!").format(
-            humanize_number(pos)
-        )
+        footer = _("You are currently #{} on the global leaderboard!").format(humanize_number(pos))
         if not await ctx.embed_requested():
             await ctx.send(f"{author.mention} {title}{description}\n\n{footer}")
         else:
