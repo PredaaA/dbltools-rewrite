@@ -623,8 +623,8 @@ class DblTools(commands.Cog):
                 dtime = self.economy_cog.display_time(next_payday - cur_time)
                 await ctx.maybe_send_embed(
                     _(
-                        "{author.mention} You are speeding! Slow down!\nFor your next payday you have to wait {time}."
-                    ).format(author=author, time=dtime)
+                        "{author.mention} You are speeding! Slow down!\nFor your next payday you have to wait **{time}**.\n\n{daily_message}"
+                    ).format(author=author, time=dtime, daily_message=daily_message)
                 )
         else:
 
@@ -680,6 +680,6 @@ class DblTools(commands.Cog):
                 dtime = self.economy_cog.display_time(next_payday - cur_time)
                 await ctx.maybe_send_embed(
                     _(
-                        "{author.mention} You are speeding! Slow down!\nFor your next payday you have to wait {time}."
-                    ).format(author=author, time=dtime)
+                        "{author.mention} You are speeding! Slow down!\nFor your next payday you have to wait **{time}**.\n\n{daily_message}"
+                    ).format(author=author, time=dtime, daily_message=daily_message)
                 )
