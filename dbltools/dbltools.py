@@ -8,15 +8,20 @@ from redbot.core.utils.chat_formatting import (
     inline,
     humanize_number,
     humanize_timedelta,
+    pagify,
 )
+from redbot.core.utils.menus import DEFAULT_CONTROLS, menu
 
 import dbl
 import time
+import math
 import aiohttp
 import logging
 import asyncio
 import calendar
 from typing import Mapping
+from tabulate import tabulate
+from collections import Counter
 from datetime import datetime, timedelta
 
 from .utils import check_weekend, download_widget, error_message, guild_only_check, intro_msg
@@ -25,7 +30,6 @@ from .utils import check_weekend, download_widget, error_message, guild_only_che
 log = logging.getLogger("red.predacogs.DblTools")
 _ = Translator("DblTools", __file__)
 
-# TODO A command to parse all month votes.
 @cog_i18n(_)
 class DblTools(commands.Cog):
     """Tools for Top.gg API."""
@@ -58,12 +62,17 @@ class DblTools(commands.Cog):
         self._post_stats_task = self.bot.loop.create_task(self.update_stats())
         self._ready_event = asyncio.Event()
 
+    def format_help_for_context(self, ctx: commands.Context) -> str:
+        """Thanks Sinbad!"""
+        pre_processed = super().format_help_for_context(ctx)
+        return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
+
     async def initialize(self):
         await self.bot.wait_until_ready()
         key = (await self.bot.get_shared_api_tokens("dbl")).get("api_key")
         try:
             client = dbl.DBLClient(self.bot, key, session=self.session)
-            # await client.get_guild_count() # FIXME temp
+            await client.get_guild_count()
         except (dbl.Unauthorized, dbl.UnauthorizedDetected):
             await client.close()
             return await self.bot.send_to_owners(
@@ -116,8 +125,10 @@ class DblTools(commands.Cog):
         if service_name != "dbl":
             return
         try:
+            if self.dbl:
+                self.dbl.close()
             client = dbl.DBLClient(self.bot, api_tokens.get("api_key"), session=self.session)
-            # await client.get_guild_count() # FIXME temp
+            await client.get_guild_count()
         except (dbl.Unauthorized, dbl.UnauthorizedDetected):
             await client.close()
             return await self.bot.send_to_owners(
@@ -369,6 +380,43 @@ class DblTools(commands.Cog):
             return await ctx.send(embed=em)
 
     @commands.command()
+    @commands.bot_has_permissions(embed_links=True)
+    @commands.cooldown(1, 1, commands.BucketType.user)
+    async def listdblvotes(self, ctx: commands.Context):
+        """Sends a list of the persons who voted for the bot this month."""
+        data = await self.dbl.get_bot_upvotes()
+        if not data:
+            return await ctx.send(_("Your bot hasn't received any votes yet."))
+
+        votes_count = Counter()
+        for user_data in data:
+            votes_count[user_data["id"]] += 1
+        votes = []
+        for user_id, value in votes_count.most_common():
+            user = self.bot.get_user(int(user_id))
+            votes.append((user if user else user_id, humanize_number(value)))
+        msg = tabulate(votes, tablefmt="orgtbl")
+        embeds = []
+        pages = 1
+        for page in pagify(msg, delims=["\n"], page_length=1300):
+            em = discord.Embed(
+                color=await ctx.embed_color(),
+                title=_("Monthly votes of {}:").format(self.bot.user),
+                description=box(page),
+            )
+            em.set_footer(
+                text=_("Page {}/{}").format(
+                    humanize_number(pages), humanize_number((math.ceil(len(msg) / 1300)))
+                )
+            )
+            pages += 1
+            embeds.append(em)
+        if len(embeds) > 1:
+            await menu(ctx, embeds, DEFAULT_CONTROLS)
+        else:
+            await ctx.send(embed=em)
+
+    @commands.command()
     @commands.cooldown(1, 1, commands.BucketType.user)
     async def daily(self, ctx: commands.Context):
         """Claim your daily reward."""
@@ -416,55 +464,51 @@ class DblTools(commands.Cog):
         regular_amount = config["daily_rewards"]["amount"]
         weekend_amount = config["daily_rewards"]["weekend_bonus_amount"]
         next_vote = int(datetime.timestamp(datetime.now() + timedelta(hours=12)))
-        if await bank.is_global():
-            try:
-                await bank.deposit_credits(
-                    author, amount=regular_amount + weekend_amount if weekend else regular_amount
-                )
-            except errors.BalanceTooHigh as exc:
-                await bank.set_balance(author, exc.max_balance)
-                await ctx.send(
-                    _(
-                        "You've reached the maximum amount of {currency}! (**{new_balance}**) "
-                        "Please spend some more \N{GRIMACING FACE}\n\n"
-                        "You currently have {new_balance} {currency}."
-                    ).format(currency=credits_name, new_balance=humanize_number(exc.max_balance))
-                )
-                return
+        try:
+            await bank.deposit_credits(
+                author, amount=regular_amount + weekend_amount if weekend else regular_amount
+            )
+        except errors.BalanceTooHigh as exc:
+            await bank.set_balance(author, exc.max_balance)
+            await ctx.send(
+                _(
+                    "You've reached the maximum amount of {currency}! (**{new_balance}**) "
+                    "Please spend some more \N{GRIMACING FACE}\n\n"
+                    "You currently have {new_balance} {currency}."
+                ).format(currency=credits_name, new_balance=humanize_number(exc.max_balance))
+            )
+            return
 
-            pos = await bank.get_leaderboard_position(author)
-            await self.config.user(author).next_daily.set(next_vote)
-            maybe_weekend_bonus = (
-                _("\nAnd your week-end bonus, +{}!").format(humanize_number(weekend_amount))
-                if weekend
-                else ""
-            )
-            title = _("Here is your daily bonus!")
-            description = _(
-                " Take some {currency}. Enjoy! (+{amount} {currency}!){weekend}\n\n"
-                "You currently have {new_balance} {currency}.\n\n"
-            ).format(
-                currency=credits_name,
-                amount=humanize_number(regular_amount),
-                weekend=maybe_weekend_bonus,
-                new_balance=humanize_number(await bank.get_balance(author)),
-            )
-            footer = _("You are currently #{} on the global leaderboard!").format(
-                humanize_number(pos)
-            )
-            if not await ctx.embed_requested():
-                await ctx.send(f"{author.mention} {title}{description}\n\n{footer}")
-            else:
-                em = discord.Embed(
-                    color=await ctx.embed_color(),
-                    title=title,
-                    description=author.mention + description,
-                )
-                em.set_footer(text=footer)
-                await ctx.send(embed=em)
+        pos = await bank.get_leaderboard_position(author)
+        await self.config.user(author).next_daily.set(next_vote)
+        maybe_weekend_bonus = (
+            _("\nAnd your week-end bonus, +{}!").format(humanize_number(weekend_amount))
+            if weekend
+            else ""
+        )
+        title = _("Here is your daily bonus!")
+        description = _(
+            " Take some {currency}. Enjoy! (+{amount} {currency}!){weekend}\n\n"
+            "You currently have {new_balance} {currency}.\n\n"
+        ).format(
+            currency=credits_name,
+            amount=humanize_number(regular_amount),
+            weekend=maybe_weekend_bonus,
+            new_balance=humanize_number(await bank.get_balance(author)),
+        )
+        footer = _("You are currently #{} on the global leaderboard!").format(
+            humanize_number(pos)
+        )
+        if not await ctx.embed_requested():
+            await ctx.send(f"{author.mention} {title}{description}\n\n{footer}")
         else:
-            # TODO Support not global banks.
-            await ctx.send("This command does not support banks per server yet.")
+            em = discord.Embed(
+                color=await ctx.embed_color(),
+                title=title,
+                description=author.mention + description,
+            )
+            em.set_footer(text=footer)
+            await ctx.send(embed=em)
 
     @guild_only_check()
     @commands.command()
