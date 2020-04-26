@@ -5,7 +5,6 @@ from redbot.core import bank, commands, Config, checks, errors
 from redbot.core.utils.chat_formatting import (
     bold,
     box,
-    inline,
     humanize_number,
     humanize_timedelta,
     pagify,
