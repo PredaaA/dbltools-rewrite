@@ -113,16 +113,17 @@ class DblTools(commands.Cog):
 
     async def update_stats(self):
         await self.bot.wait_until_ready()
-        if await self.config.post_guild_count():
-            try:
-                await self.dbl.post_guild_count()
-                log.info(
-                    "Posted server count to Top.gg {} servers.".format(self.dbl.guild_count())
-                )
-            except Exception as error:
-                log.exception(
-                    "Failed to post server count\n{}: {}".format(type(error).__name__, error)
-                )
+        while True:
+            if await self.config.post_guild_count():
+                try:
+                    await self.dbl.post_guild_count()
+                    log.info(
+                        "Posted server count to Top.gg {} servers.".format(self.dbl.guild_count())
+                    )
+                except Exception as error:
+                    log.exception(
+                        "Failed to post server count\n{}: {}".format(type(error).__name__, error)
+                    )
             await asyncio.sleep(1800)
 
     @commands.Cog.listener()
