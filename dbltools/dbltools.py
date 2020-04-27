@@ -35,7 +35,7 @@ class DblTools(commands.Cog):
     """Tools for Top.gg API."""
 
     __author__ = "Predä"
-    __version__ = "2.0.1_brandjuh"
+    __version__ = "2.0.2_brandjuh"
 
     def __init__(self, bot: Red):
         self.bot = bot
