@@ -592,7 +592,9 @@ class DblTools(commands.Cog):
             )
             if cur_time >= next_payday:
                 try:
-                    await bank.deposit_credits(author, await self.economy_cog.PAYDAY_CREDITS())
+                    await bank.deposit_credits(
+                        author, await self.economy_cog.config.PAYDAY_CREDITS()
+                    )
                 except errors.BalanceTooHigh as exc:
                     await bank.set_balance(author, exc.max_balance)
                     await ctx.maybe_send_embed(
