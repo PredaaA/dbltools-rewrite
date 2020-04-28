@@ -35,7 +35,7 @@ class DblTools(commands.Cog):
     """Tools for Top.gg API."""
 
     __author__ = "Predä"
-    __version__ = "2.0.3_brandjuh"
+    __version__ = "2.0.4_brandjuh"
 
     def __init__(self, bot: Red):
         self.bot = bot
@@ -592,7 +592,7 @@ class DblTools(commands.Cog):
             )
             if cur_time >= next_payday:
                 try:
-                    await bank.deposit_credits(author, 50)
+                    await bank.deposit_credits(author, await self.config.PAYDAY_CREDITS())
                 except errors.BalanceTooHigh as exc:
                     await bank.set_balance(author, exc.max_balance)
                     await ctx.maybe_send_embed(
