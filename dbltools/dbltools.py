@@ -620,7 +620,7 @@ class DblTools(commands.Cog):
                     ).format(
                         author=author,
                         currency=credits_name,
-                        amount=humanize_number(await self.config.PAYDAY_CREDITS()),
+                        amount=humanize_number(await self.economy_cog.config.PAYDAY_CREDITS()),
                         new_balance=humanize_number(await bank.get_balance(author)),
                         daily_message=daily_message,
                         pos=humanize_number(pos) if pos else pos,
