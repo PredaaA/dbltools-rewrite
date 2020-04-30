@@ -35,7 +35,7 @@ class DblTools(commands.Cog):
     """Tools for Top.gg API."""
 
     __author__ = "Predä"
-    __version__ = "2.0.4_brandjuh"
+    __version__ = "2.0.5_brandjuh"
 
     def __init__(self, bot: Red):
         self.bot = bot
@@ -88,7 +88,7 @@ class DblTools(commands.Cog):
         except dbl.errors.HTTPException:
             await client.close()
             return await self.bot.send_to_owners(
-                _("[DblTools cog]\nFailed to contact Top.gg API. Please try again later.")
+                _("[DblTools cog]\nFailed to contact Top.gg API. Please try again to reload the cog later.")
             )
         self.dbl = client
         self._ready_event.set()
@@ -104,12 +104,13 @@ class DblTools(commands.Cog):
             self.bot.remove_command(payday_command.name)
 
     async def cog_before_invoke(self, ctx: commands.Context):
-        await self._ready_event.wait()
         if ctx.command.name == "payday":
             cog = self.bot.get_cog("Economy")
             if not cog:
                 return
             self.economy_cog = cog
+            return
+        await self._ready_event.wait()
 
     async def update_stats(self):
         await self.bot.wait_until_ready()
