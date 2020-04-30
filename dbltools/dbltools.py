@@ -35,7 +35,7 @@ class DblTools(commands.Cog):
     """Tools for Top.gg API."""
 
     __author__ = "Predä"
-    __version__ = "2.0.5_brandjuh"
+    __version__ = "2.0.6_brandjuh"
 
     def __init__(self, bot: Red):
         self.bot = bot
@@ -60,7 +60,6 @@ class DblTools(commands.Cog):
         self.session = aiohttp.ClientSession()
         self._init_task = bot.loop.create_task(self.initialize())
         self._post_stats_task = self.bot.loop.create_task(self.update_stats())
-        self._ready_event = asyncio.Event()
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
         """Thanks Sinbad!"""
@@ -70,28 +69,7 @@ class DblTools(commands.Cog):
     async def initialize(self):
         await self.bot.wait_until_ready()
         key = (await self.bot.get_shared_api_tokens("dbl")).get("api_key")
-        try:
-            client = dbl.DBLClient(self.bot, key, session=self.session)
-            await client.get_guild_count()
-        except (dbl.Unauthorized, dbl.UnauthorizedDetected):
-            await client.close()
-            return await self.bot.send_to_owners(
-                "[DblTools cog]\n" + error_message.format(intro_msg)
-            )
-        except dbl.NotFound:
-            await client.close()
-            return await self.bot.send_to_owners(
-                _(
-                    "[DblTools cog]\nThis bot seems doesn't seems be validated on Top.gg. Please try again with a validated bot."
-                )
-            )
-        except dbl.errors.HTTPException:
-            await client.close()
-            return await self.bot.send_to_owners(
-                _("[DblTools cog]\nFailed to contact Top.gg API. Please try again to reload the cog later.")
-            )
-        self.dbl = client
-        self._ready_event.set()
+        self.dbl = dbl.DBLClient(self.bot, key, session=self.session)
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
@@ -109,12 +87,9 @@ class DblTools(commands.Cog):
             if not cog:
                 return
             self.economy_cog = cog
-            return
-        await self._ready_event.wait()
 
     async def update_stats(self):
         await self.bot.wait_until_ready()
-        await self._ready_event.wait()
         while True:
             if await self.config.post_guild_count():
                 try:
@@ -150,18 +125,11 @@ class DblTools(commands.Cog):
                     "[DblTools cog]\nThis bot seems doesn't seems be validated on Top.gg. Please try again with a validated bot."
                 )
             )
-        except dbl.errors.HTTPException:
-            await client.close()
-            return await self.bot.send_to_owners(
-                _("[DblTools cog]\nFailed to contact Top.gg API. Please try again later.")
-            )
         self.dbl = client
-        self._ready_event.set()
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         await self.bot.wait_until_ready()
-        await self._ready_event.wait()
         config = await self.config.all()
         if not member.guild.id == config["support_server_role"]["guild_id"]:
             return
@@ -169,7 +137,7 @@ class DblTools(commands.Cog):
             return
         try:
             check_vote = await self.dbl.get_user_vote(member.id)
-        except dbl.errors.HTTPException as error:
+        except (dbl.Unauthorized, dbl.UnauthorizedDetected, dbl.errors.HTTPException) as error:
             log.error("Failed to fetch Top.gg API.", exc_info=error)
             return
         if check_vote:
@@ -285,9 +253,13 @@ class DblTools(commands.Cog):
         async with ctx.typing():
             try:
                 data = await self.dbl.get_bot_info(bot.id)
+            except (dbl.Unauthorized, dbl.UnauthorizedDetected):
+                return await ctx.send(
+                    _("Failed to contact Top.gg API. A wrong token has been set by the bot owner.")
+                )
             except dbl.NotFound:
                 return await ctx.send(_("That bot isn't validated on Top.gg."))
-            except dbl.errors.HTTPException as error:
+            except dbl.HTTPException as error:
                 log.error("Failed to fetch Top.gg API.", exc_info=error)
                 return await ctx.send(_("Failed to contact Top.gg API. Please try again later."))
 
@@ -390,9 +362,13 @@ class DblTools(commands.Cog):
             try:
                 await self.dbl.get_guild_count(bot.id)
                 url = await self.dbl.get_widget_large(bot.id)
+            except (dbl.Unauthorized, dbl.UnauthorizedDetected):
+                return await ctx.send(
+                    _("Failed to contact Top.gg API. A wrong token has been set by the bot owner.")
+                )
             except dbl.NotFound:
                 return await ctx.send(_("That bot isn't validated on Top.gg."))
-            except dbl.errors.HTTPException as error:
+            except dbl.HTTPException as error:
                 log.error("Failed to fetch Top.gg API.", exc_info=error)
                 return await ctx.send(_("Failed to contact Top.gg API. Please try again later."))
             file = await download_widget(self.session, url)
@@ -414,7 +390,11 @@ class DblTools(commands.Cog):
         """Sends a list of the persons who voted for the bot this month."""
         try:
             data = await self.dbl.get_bot_upvotes()
-        except dbl.errors.HTTPException as error:
+        except (dbl.Unauthorized, dbl.UnauthorizedDetected):
+            return await ctx.send(
+                _("Failed to contact Top.gg API. A wrong token has been set by the bot owner.")
+            )
+        except (dbl.NotFound, dbl.HTTPException) as error:
             log.error("Failed to fetch Top.gg API.", exc_info=error)
             return await ctx.send(_("Failed to contact Top.gg API. Please try again later."))
         if not data:
@@ -474,6 +454,10 @@ class DblTools(commands.Cog):
         weekend = check_weekend() and config["daily_rewards"]["weekend_bonus_toggled"]
         try:
             check_vote = await self.dbl.get_user_vote(author.id)
+        except (dbl.NotFound, dbl.Unauthorized, dbl.UnauthorizedDetected):
+            return await ctx.send(
+                _("Failed to contact Top.gg API. A wrong token has been set by the bot owner.")
+            )
         except dbl.errors.HTTPException as error:
             log.error("Failed to fetch Top.gg API.", exc_info=error)
             return await ctx.send(_("Failed to contact Top.gg API. Please try again later."))
