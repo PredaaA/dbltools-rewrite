@@ -35,7 +35,7 @@ class DblTools(commands.Cog):
     """Tools for Top.gg API."""
 
     __author__ = "Predä"
-    __version__ = "2.0.6_brandjuh"
+    __version__ = "2.0.7_brandjuh"
 
     def __init__(self, bot: Red):
         self.bot = bot
@@ -468,11 +468,13 @@ class DblTools(commands.Cog):
                     humanize_number(config["daily_rewards"]["weekend_bonus_amount"]), credits_name
                 )
             title = _(
-                "**Click here to upvote {bot_name} every 12 hours to earn {amount} {currency}{weekend}!**"
+                "**You can upvote {bot_name} every 12 hours to earn {amount} {currency}\n"
+                "Click here to vote. Then do {prefix}daily again.{weekend}!**"
             ).format(
                 bot_name=self.bot.user.name,
                 amount=humanize_number(config["daily_rewards"]["amount"]),
                 currency=credits_name,
+                prefix=ctx.prefix,
                 weekend=maybe_weekend_bonus,
             )
             vote_url = f"https://top.gg/bot/{self.bot.user.id}/vote"
@@ -555,18 +557,16 @@ class DblTools(commands.Cog):
                         credits_name,
                     )
                 daily_message = _(
-                    "Upvote {bot_name} every 12 hours to earn {daily_amount} {currency}{weekend}!\n\n"
+                    "Your daily bonus is ready! Type `{prefix}daily` to claim {daily_amount} {currency}{weekend}\n\n"
                 ).format(
-                    bot_name=self.bot.user.name,
+                    prefix=ctx.prefix,
                     daily_amount=daily_config["daily_rewards"]["amount"],
                     currency=credits_name,
                     weekend=maybe_weekend_bonus,
                 )
             else:
                 delta = humanize_timedelta(seconds=next_daily - cur_time) or "1 second"
-                daily_message = _("Your next daily reward will be available in {}.\n\n").format(
-                    delta
-                )
+                daily_message = _("Your daily bonus will be ready in {}.\n\n").format(delta)
 
         if await bank.is_global():  # Role payouts will not be used
 
@@ -616,7 +616,7 @@ class DblTools(commands.Cog):
                 dtime = self.economy_cog.display_time(next_payday - cur_time)
                 await ctx.maybe_send_embed(
                     _(
-                        "{author.mention} You are speeding! Slow down!\nFor your next payday you have to wait **{time}**.\n\n{daily_message}"
+                        "{author.mention} You are speeding! Slow down!\nYour next payday will be ready in **{time}**.\n\n{daily_message}"
                     ).format(author=author, time=dtime, daily_message=daily_message)
                 )
         else:
@@ -673,6 +673,6 @@ class DblTools(commands.Cog):
                 dtime = self.economy_cog.display_time(next_payday - cur_time)
                 await ctx.maybe_send_embed(
                     _(
-                        "{author.mention} You are speeding! Slow down!\nFor your next payday you have to wait **{time}**.\n\n{daily_message}"
+                        "{author.mention} You are speeding! Slow down!\nYour next payday will be ready in **{time}**.\n\n{daily_message}"
                     ).format(author=author, time=dtime, daily_message=daily_message)
                 )
