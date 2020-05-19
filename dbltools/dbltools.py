@@ -177,6 +177,7 @@ class DblTools(commands.Cog):
 
     @commands.Cog.listener()
     async def on_dbl_vote(self, data: dict):
+        log.info("Vote received: %s", data)
         global_config = await self.config.all()
         if not global_config["daily_rewards"]["toggled"]:
             return
