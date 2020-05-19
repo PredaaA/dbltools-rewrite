@@ -301,6 +301,8 @@ class DblTools(commands.Cog):
         """
         if await self.config.webhook_auth() is None:
             return await ctx.send(_("You need to run `{}dblset webhook token` before.").format(ctx.prefix))
+        if (port < 1) or (port > 65535):
+            return await ctx.send("Invalid port number. The port must be between 1 and 65535.")
         await self.config.webhook_port.set(port)
         await self.initialize()
         await ctx.send(
