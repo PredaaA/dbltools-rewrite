@@ -474,7 +474,7 @@ class DblTools(commands.Cog):
                 bot_name=self.bot.user.name,
                 amount=humanize_number(config["daily_rewards"]["amount"]),
                 currency=credits_name,
-                prefix=ctx.prefix,
+                prefix=ctx.clean_prefix,
                 weekend=maybe_weekend_bonus,
             )
             vote_url = f"https://top.gg/bot/{self.bot.user.id}/vote"
@@ -559,7 +559,7 @@ class DblTools(commands.Cog):
                 daily_message = _(
                     "Your daily bonus is ready! Type `{prefix}daily` to claim {daily_amount} {currency}{weekend}\n\n"
                 ).format(
-                    prefix=ctx.prefix,
+                    prefix=ctx.clean_prefix,
                     daily_amount=daily_config["daily_rewards"]["amount"],
                     currency=credits_name,
                     weekend=maybe_weekend_bonus,
