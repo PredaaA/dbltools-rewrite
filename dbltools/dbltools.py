@@ -287,8 +287,7 @@ class DblTools(commands.Cog):
         await self.initialize()
         await self.bot.send_to_owners(
             _(
-                "Here is the token for your webhook server that you will need to specify on your Top.gg bot page:\n"
-                "`{token}`"
+                "Here is the token for your webhook server that you will need to specify on your Top.gg bot page:\n`{}`"
             ).format(token)
         )
         await ctx.tick()
