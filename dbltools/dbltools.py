@@ -322,7 +322,7 @@ class DblTools(commands.Cog):
             "Optional: Use `{prefix}dblset webhook voteschannel channel_id_or_mention` command, to set a channel where you will receive notifications of votes "
             "(This can be useful for step 4 of this guide).\n\n"
             "**1.** Use `{prefix}dblset webhook token` command, which will generate a token, that you will need to "
-            "provide at this page: <https://top.gg/bot/{botid}/edit>. At the bottom of the page on `API Options` category, then `Webhook` section, and `Authorization` field..\n"
+            "provide at this page: <https://top.gg/bot/{botid}/edit>. At the bottom of the page on `API Options` category, then `Webhook` section, and `Authorization` field.\n"
             "**2.** Use `{prefix}dblset webhook port port_here` command, followed by the port of your choice. Don't forget to open it on your host, "
             "on Ubuntu you can use `sudo ufw allow your_port/tcp` command.\n"
             "**3.** On this page again, <https://top.gg/bot/{botid}/edit>, at `URL` field, put the following: `http://host_ip:port/dblwebhook`, and press on `Save` button. "
