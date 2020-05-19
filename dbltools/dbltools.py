@@ -282,7 +282,7 @@ class DblTools(commands.Cog):
     @webhook.command()
     async def token(self, ctx: commands.Context):
         """Generate a token and send it to owner DMs."""
-        token = uuid4()
+        token = str(uuid4())
         await self.config.webhook_auth.set(token)
         await self.initialize()
         await self.bot.send_to_owners(
