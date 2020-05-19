@@ -18,6 +18,7 @@ import aiohttp
 import logging
 import asyncio
 import calendar
+from uuid import uuid4
 from typing import Mapping
 from tabulate import tabulate
 from collections import Counter
@@ -35,7 +36,7 @@ class DblTools(commands.Cog):
     """Tools for Top.gg API."""
 
     __author__ = "Predä"
-    __version__ = "2.0.7_brandjuh"
+    __version__ = "2.1_brandjuh"
 
     def __init__(self, bot: Red):
         self.bot = bot
@@ -46,6 +47,9 @@ class DblTools(commands.Cog):
         )
         self.config.register_global(
             post_guild_count=False,
+            webhook_auth=None,
+            webhook_port=None,
+            votes_channel=None,
             support_server_role={"guild_id": None, "role_id": None},
             daily_rewards={
                 "toggled": False,
@@ -54,7 +58,7 @@ class DblTools(commands.Cog):
                 "weekend_bonus_amount": 500,
             },
         )
-        self.config.register_user(next_daily=0)
+        self.config.register_user(voted=False, next_daily=0)
 
         self.economy_cog = None
         self.session = aiohttp.ClientSession()
@@ -69,7 +73,14 @@ class DblTools(commands.Cog):
     async def initialize(self):
         await self.bot.wait_until_ready()
         key = (await self.bot.get_shared_api_tokens("dbl")).get("api_key")
-        self.dbl = dbl.DBLClient(self.bot, key, session=self.session)
+        config = await self.config.all()
+        self.dbl = dbl.DBLClient(
+            bot=self.bot,
+            token=key,
+            session=self.session,
+            webhook_port=config["webhook_port"],
+            webhook_auth=config["webhook_auth"],
+        )
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
@@ -110,7 +121,14 @@ class DblTools(commands.Cog):
         try:
             if self.dbl:
                 self.dbl.close()
-            client = dbl.DBLClient(self.bot, api_tokens.get("api_key"), session=self.session)
+            config = await self.config.all()
+            client = dbl.DBLClient(
+                bot=self.bot,
+                token=api_tokens.get("api_key"),
+                session=self.session,
+                webhook_port=config["webhook_port"],
+                webhook_auth=config["webhook_auth"],
+            )
             await client.get_guild_count()
         except (dbl.Unauthorized, dbl.UnauthorizedDetected):
             await client.close()
@@ -157,6 +175,89 @@ class DblTools(commands.Cog):
                     config["support_server_role"]["guild_id"] = None
                     config["support_server_role"]["role_id"] = None
 
+    @commands.Cog.listener()
+    async def on_dbl_vote(self, data: dict):
+        global_config = await self.config.all()
+        if not global_config["daily_rewards"]["toggled"]:
+            return
+        async with self.config.user_from_id(data["user"]).all() as config:
+            config["voted"] = True
+            config["next_daily"] = int(datetime.timestamp(datetime.now() + timedelta(hours=12)))
+        user = self.bot.get_user(data["user"])
+        if not user:
+            log.error("Received a vote for ID %s, but cannot get it from bot cache.", data["user"])
+            return
+
+        regular_amount = global_config["daily_rewards"]["amount"]
+        weekend_amount = global_config["daily_rewards"]["weekend_bonus_amount"]
+        weekend = check_weekend() and global_config["daily_rewards"]["weekend_bonus_toggled"]
+        credits_name = await bank.get_currency_name()
+        try:
+            await bank.deposit_credits(
+                user, amount=regular_amount + weekend_amount if weekend else regular_amount
+            )
+        except errors.BalanceTooHigh as exc:
+            await bank.set_balance(user, exc.max_balance)
+            await user.send(
+                embed=discord.Embed(
+                    title="Thanks for your upvote!",
+                    description=_(
+                        "However, you've reached the maximum amount of {currency}! (**{new_balance}**) "
+                        "Please spend some more \N{GRIMACING FACE}\n\n"
+                        "You currently have {new_balance} {currency}."
+                    ).format(currency=credits_name, new_balance=humanize_number(exc.max_balance)),
+                )
+            )
+            return
+
+        pos = await bank.get_leaderboard_position(user)
+        maybe_weekend_bonus = (
+            _("\nAnd your week-end bonus, +{}!").format(humanize_number(weekend_amount))
+            if weekend
+            else ""
+        )
+        em = discord.Embed(
+            color=await self.bot.get_embed_color(user),
+            title=_("Thanks for your upvote! Here is your daily bonus."),
+            description=_(
+                " Take some {currency}. Enjoy! (+{amount} {currency}!){weekend}\n\n"
+                "You currently have {new_balance} {currency}.\n\n"
+            ).format(
+                currency=credits_name,
+                amount=humanize_number(regular_amount),
+                weekend=maybe_weekend_bonus,
+                new_balance=humanize_number(await bank.get_balance(user)),
+            ),
+        )
+        em.set_footer(
+            text=_("You are currently #{} on the global leaderboard!").format(humanize_number(pos))
+        )
+        try:
+            await user.send(embed=em)
+        except discord.Forbidden:
+            log.error("Failed to send vote notification to %s.", user.name)
+
+        if global_config["votes_channel"]:
+            channel = self.bot.get_channel(global_config["votes_channel"])
+            if not channel:
+                await self.config.votes_channel.set(None)
+                return
+            msg = _("{user.mention} `{user.id}` just voted for {bot.mention} on Top.gg!").format(
+                user=self.bot.get_user(data["user"]), bot=self.bot.user
+            )
+            await channel.send(msg)
+
+    @commands.Cog.listener()
+    async def on_dbl_test(self, data: dict):
+        global_config = await self.config.all()
+        if global_config["votes_channel"]:
+            channel = self.bot.get_channel(global_config["votes_channel"])
+            if not channel:
+                await self.config.votes_channel.set(None)
+                return
+            msg = _("Top.gg test vote.")
+            await channel.send(msg)
+
     @commands.group()
     async def dblset(self, ctx: commands.Context):
         """Group commands for settings of DblTools cog."""
@@ -172,6 +273,63 @@ class DblTools(commands.Cog):
             if not toggled
             else _("Stats will no longer be sent to Top.gg.")
         )
+        await ctx.send(msg)
+
+    @dblset.group()
+    async def webhook(self, ctx: commands.Context):
+        """Webhook server settings."""
+
+    @webhook.command()
+    async def token(self, ctx: commands.Context):
+        """Generate a token and send it to owner DMs."""
+        token = uuid4()
+        await self.config.webhook_auth.set(token)
+        await self.initialize()
+        await self.bot.send_to_owners(
+            _(
+                "Here is the token for your webhook server that you will need to specify on your Top.gg bot page:\n"
+                "`{token}`"
+            ).format(token)
+        )
+        await ctx.tick()
+
+    @webhook.command()
+    async def port(self, ctx: commands.Context, port: int = None):
+        """
+        Set webhook server port. `[p]dblset webhook` token needs to be ran before.
+
+        Use this command without specifying a port to reset it, which will stop the webhook server.
+        """
+        if await self.config.webhook_auth() is None:
+            return await ctx.send(_("You need to run `{}dblset webhook token` before."))
+        await self.config.webhook_port.set(port)
+        await self.initialize()
+        await ctx.send(
+            _(
+                "Webhook server set to {} port.\nThe server is now running and ready to receive votes."
+            )
+        )
+
+    @webhook.command()
+    async def voteschannel(self, ctx: commands.Context, *, channel: discord.TextChannel):
+        """Set the channel where you will receive notifications of votes."""
+        await self.config.votes_channel.set(channel.id)
+        await ctx.send(_("Votes notifications will be sent to `{}`.").format(channel))
+
+    @webhook.command()
+    async def setup(self, ctx: commands.Context):
+        """Explanantions on how to setup the webhook server."""
+        msg = _(
+            "Optional: Use `{prefix}dblset webhook voteschannel channel_id_or_mention` command, to set a channel where you will receive notifications of votes "
+            "(This can be useful for step 4 of this guide).\n\n"
+            "**1.** Use `{prefix}dblset webhook token` command, which will generate a token, that you will need to "
+            "provide at this page: <https://top.gg/bot/{botid}/edit>. At the bottom of the page on `API Options` category, then `Webhook` section, and `Authorization` field..\n"
+            "**2.** Use `{prefix}dblset webhook port port_here` command, followed by the port of your choice. Don't forget to open it on your host, "
+            "on Ubuntu you can use `sudo ufw allow your_port/tcp` command.\n"
+            "**3.** On this page again, <https://top.gg/bot/{botid}/edit>, at `URL` field, put the following: `http://host_ip:port/dblwebhook`, and press on `Save` button. "
+            "`host_ip` is your vps/host IP address, and `port` is the port you have set before, on `{prefix}dblset webhook port port_here` command.\n"
+            "**4.** If you have set a votes notification channel, use the `Test` button, if you receive a `Top.gg test vote.` message, it means that the setup is done."
+        ).format(prefix=ctx.prefix, botid=ctx.bot.user.id)
         await ctx.send(msg)
 
     @dblset.group(aliases=["rolereward"])
@@ -452,16 +610,8 @@ class DblTools(commands.Cog):
             return
         credits_name = await bank.get_currency_name(ctx.guild)
         weekend = check_weekend() and config["daily_rewards"]["weekend_bonus_toggled"]
-        try:
-            check_vote = await self.dbl.get_user_vote(author.id)
-        except (dbl.NotFound, dbl.Unauthorized, dbl.UnauthorizedDetected):
-            return await ctx.send(
-                _("Failed to contact Top.gg API. A wrong token has been set by the bot owner.")
-            )
-        except dbl.errors.HTTPException as error:
-            log.error("Failed to fetch Top.gg API.", exc_info=error)
-            return await ctx.send(_("Failed to contact Top.gg API. Please try again later."))
-        if not check_vote:
+        voted = await self.config.user(author).voted()
+        if not voted:  # FIXME Probably not needed to check vote here.
             maybe_weekend_bonus = ""
             if weekend:
                 maybe_weekend_bonus = _(" and the week-end bonus of {} {}").format(
@@ -483,53 +633,6 @@ class DblTools(commands.Cog):
             else:
                 em = discord.Embed(color=discord.Color.red(), title=title, url=vote_url)
                 await ctx.send(embed=em)
-            return
-        regular_amount = config["daily_rewards"]["amount"]
-        weekend_amount = config["daily_rewards"]["weekend_bonus_amount"]
-        next_vote = int(datetime.timestamp(datetime.now() + timedelta(hours=12)))
-        try:
-            await bank.deposit_credits(
-                author, amount=regular_amount + weekend_amount if weekend else regular_amount
-            )
-        except errors.BalanceTooHigh as exc:
-            await bank.set_balance(author, exc.max_balance)
-            await ctx.send(
-                _(
-                    "You've reached the maximum amount of {currency}! (**{new_balance}**) "
-                    "Please spend some more \N{GRIMACING FACE}\n\n"
-                    "You currently have {new_balance} {currency}."
-                ).format(currency=credits_name, new_balance=humanize_number(exc.max_balance))
-            )
-            return
-
-        pos = await bank.get_leaderboard_position(author)
-        await self.config.user(author).next_daily.set(next_vote)
-        maybe_weekend_bonus = (
-            _("\nAnd your week-end bonus, +{}!").format(humanize_number(weekend_amount))
-            if weekend
-            else ""
-        )
-        title = _("Here is your daily bonus!")
-        description = _(
-            " Take some {currency}. Enjoy! (+{amount} {currency}!){weekend}\n\n"
-            "You currently have {new_balance} {currency}.\n\n"
-        ).format(
-            currency=credits_name,
-            amount=humanize_number(regular_amount),
-            weekend=maybe_weekend_bonus,
-            new_balance=humanize_number(await bank.get_balance(author)),
-        )
-        footer = _("You are currently #{} on the global leaderboard!").format(humanize_number(pos))
-        if not await ctx.embed_requested():
-            await ctx.send(f"{author.mention} {title}{description}\n\n{footer}")
-        else:
-            em = discord.Embed(
-                color=await ctx.embed_color(),
-                title=title,
-                description=author.mention + description,
-            )
-            em.set_footer(text=footer)
-            await ctx.send(embed=em)
 
     @guild_only_check()
     @commands.command()
@@ -544,9 +647,14 @@ class DblTools(commands.Cog):
         daily_config = await self.config.all()
         daily_message = "\n"
         if daily_config["daily_rewards"]["toggled"]:
-            next_daily = await self.config.user(author).next_daily()
-            last_vote = True if next_daily < int(time.time()) else False
-            if last_vote:
+            last_vote = await self.config.user(author).next_daily()
+            if last_vote > int(time.time()):
+                delta = humanize_timedelta(seconds=last_vote - cur_time) or "1 second"
+                daily_message = _("Your daily bonus will be ready in {}.\n\n").format(delta)
+            else:
+                async with self.config.user(author).all() as config:
+                    config["voted"] = False
+                    config["next_daily"] = 0
                 weekend = (
                     check_weekend() and daily_config["daily_rewards"]["weekend_bonus_toggled"]
                 )
@@ -564,9 +672,6 @@ class DblTools(commands.Cog):
                     currency=credits_name,
                     weekend=maybe_weekend_bonus,
                 )
-            else:
-                delta = humanize_timedelta(seconds=next_daily - cur_time) or "1 second"
-                daily_message = _("Your daily bonus will be ready in {}.\n\n").format(delta)
 
         if await bank.is_global():  # Role payouts will not be used
 
