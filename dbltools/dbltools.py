@@ -300,13 +300,13 @@ class DblTools(commands.Cog):
         Use this command without specifying a port to reset it, which will stop the webhook server.
         """
         if await self.config.webhook_auth() is None:
-            return await ctx.send(_("You need to run `{}dblset webhook token` before."))
+            return await ctx.send(_("You need to run `{}dblset webhook token` before.").format(ctx.prefix))
         await self.config.webhook_port.set(port)
         await self.initialize()
         await ctx.send(
             _(
                 "Webhook server set to {} port.\nThe server is now running and ready to receive votes."
-            )
+            ).format(port)
         )
 
     @webhook.command()
