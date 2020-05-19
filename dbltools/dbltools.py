@@ -612,28 +612,27 @@ class DblTools(commands.Cog):
         credits_name = await bank.get_currency_name(ctx.guild)
         weekend = check_weekend() and config["daily_rewards"]["weekend_bonus_toggled"]
         voted = await self.config.user(author).voted()
-        if not voted:  # FIXME Probably not needed to check vote here.
-            maybe_weekend_bonus = ""
-            if weekend:
-                maybe_weekend_bonus = _(" and the week-end bonus of {} {}").format(
-                    humanize_number(config["daily_rewards"]["weekend_bonus_amount"]), credits_name
-                )
-            title = _(
-                "**You can upvote {bot_name} every 12 hours to earn {amount} {currency}\n"
-                "Click here to vote. Then do {prefix}daily again.{weekend}!**"
-            ).format(
-                bot_name=self.bot.user.name,
-                amount=humanize_number(config["daily_rewards"]["amount"]),
-                currency=credits_name,
-                prefix=ctx.clean_prefix,
-                weekend=maybe_weekend_bonus,
+        maybe_weekend_bonus = ""
+        if weekend:
+            maybe_weekend_bonus = _(" and the week-end bonus of {} {}").format(
+                humanize_number(config["daily_rewards"]["weekend_bonus_amount"]), credits_name
             )
-            vote_url = f"https://top.gg/bot/{self.bot.user.id}/vote"
-            if not await ctx.embed_requested():
-                await ctx.send(f"{title}\n\n{vote_url}")
-            else:
-                em = discord.Embed(color=discord.Color.red(), title=title, url=vote_url)
-                await ctx.send(embed=em)
+        title = _(
+            "**You can upvote {bot_name} every 12 hours to earn {amount} {currency}\n"
+            "Click here to vote. Then do {prefix}daily again.{weekend}!**"
+        ).format(
+            bot_name=self.bot.user.name,
+            amount=humanize_number(config["daily_rewards"]["amount"]),
+            currency=credits_name,
+            prefix=ctx.clean_prefix,
+            weekend=maybe_weekend_bonus,
+        )
+        vote_url = f"https://top.gg/bot/{self.bot.user.id}/vote"
+        if not await ctx.embed_requested():
+            await ctx.send(f"{title}\n\n{vote_url}")
+        else:
+            em = discord.Embed(color=discord.Color.red(), title=title, url=vote_url)
+            await ctx.send(embed=em)
 
     @guild_only_check()
     @commands.command()
