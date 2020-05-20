@@ -177,7 +177,6 @@ class DblTools(commands.Cog):
 
     @commands.Cog.listener()
     async def on_dbl_vote(self, data: dict):
-        log.info("Vote received: %s", data)
         global_config = await self.config.all()
         if not global_config["daily_rewards"]["toggled"]:
             return
@@ -186,7 +185,9 @@ class DblTools(commands.Cog):
             config["next_daily"] = int(datetime.timestamp(datetime.now() + timedelta(hours=12)))
         user = self.bot.get_user(int(data["user"]))
         if not user:
-            log.error("Received a vote for ID %s, but cannot get it from bot cache.", data["user"])
+            log.error(
+                "Received a vote for ID %s, but cannot get this user from bot cache.", data["user"]
+            )
             return
 
         regular_amount = global_config["daily_rewards"]["amount"]
