@@ -622,13 +622,12 @@ class DblTools(commands.Cog):
                 humanize_number(config["daily_rewards"]["weekend_bonus_amount"]), credits_name
             )
         title = _(
-            "**You can upvote {bot_name} every 12 hours to earn {amount} {currency}\n"
-            "Click here to vote. Then do {prefix}daily again{weekend}!**"
+            "**You can upvote {bot_name} every 12 hours to earn {amount} {currency}{weekend}\n"
+            "Click here to vote. I will send you a DM with your reward when I will have received your vote.**"
         ).format(
             bot_name=self.bot.user.name,
             amount=humanize_number(config["daily_rewards"]["amount"]),
             currency=credits_name,
-            prefix=ctx.clean_prefix,
             weekend=maybe_weekend_bonus,
         )
         vote_url = f"https://top.gg/bot/{self.bot.user.id}/vote"
