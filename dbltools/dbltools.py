@@ -244,7 +244,7 @@ class DblTools(commands.Cog):
                 await self.config.votes_channel.set(None)
                 return
             msg = _("{user.mention} `{user.id}` just voted for {bot.mention} on Top.gg!").format(
-                user=self.bot.get_user(int(data["user"])), bot=self.bot.user
+                user=user, bot=self.bot.user
             )
             await channel.send(msg)
 
@@ -301,7 +301,9 @@ class DblTools(commands.Cog):
         Use this command without specifying a port to reset it, which will stop the webhook server.
         """
         if await self.config.webhook_auth() is None:
-            return await ctx.send(_("You need to run `{}dblset webhook token` before.").format(ctx.prefix))
+            return await ctx.send(
+                _("You need to run `{}dblset webhook token` before.").format(ctx.prefix)
+            )
         if (port < 1) or (port > 65535):
             return await ctx.send("Invalid port number. The port must be between 1 and 65535.")
         await self.config.webhook_port.set(port)
