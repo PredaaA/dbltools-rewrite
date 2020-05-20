@@ -181,10 +181,10 @@ class DblTools(commands.Cog):
         global_config = await self.config.all()
         if not global_config["daily_rewards"]["toggled"]:
             return
-        async with self.config.user_from_id(data["user"]).all() as config:
+        async with self.config.user_from_id(int(data["user"])).all() as config:
             config["voted"] = True
             config["next_daily"] = int(datetime.timestamp(datetime.now() + timedelta(hours=12)))
-        user = self.bot.get_user(data["user"])
+        user = self.bot.get_user(int(data["user"]))
         if not user:
             log.error("Received a vote for ID %s, but cannot get it from bot cache.", data["user"])
             return
@@ -244,7 +244,7 @@ class DblTools(commands.Cog):
                 await self.config.votes_channel.set(None)
                 return
             msg = _("{user.mention} `{user.id}` just voted for {bot.mention} on Top.gg!").format(
-                user=self.bot.get_user(data["user"]), bot=self.bot.user
+                user=self.bot.get_user(int(data["user"])), bot=self.bot.user
             )
             await channel.send(msg)
 
@@ -620,7 +620,7 @@ class DblTools(commands.Cog):
             )
         title = _(
             "**You can upvote {bot_name} every 12 hours to earn {amount} {currency}\n"
-            "Click here to vote. Then do {prefix}daily again.{weekend}!**"
+            "Click here to vote. Then do {prefix}daily again{weekend}!**"
         ).format(
             bot_name=self.bot.user.name,
             amount=humanize_number(config["daily_rewards"]["amount"]),
