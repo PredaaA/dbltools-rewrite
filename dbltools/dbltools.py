@@ -36,7 +36,7 @@ class DblTools(commands.Cog):
     """Tools for Top.gg API."""
 
     __author__ = "Predä"
-    __version__ = "2.1_brandjuh"
+    __version__ = "2.1.1_brandjuh"
 
     def __init__(self, bot: Red):
         self.bot = bot
@@ -153,12 +153,8 @@ class DblTools(commands.Cog):
             return
         if not config["support_server_role"]["role_id"]:
             return
-        try:
-            check_vote = await self.dbl.get_user_vote(member.id)
-        except (dbl.Unauthorized, dbl.UnauthorizedDetected, dbl.errors.HTTPException) as error:
-            log.error("Failed to fetch Top.gg API.", exc_info=error)
-            return
-        if check_vote:
+        voted = await self.config.user(member).voted()
+        if voted:
             try:
                 await member.add_roles(
                     member.guild.get_role(config["support_server_role"]["role_id"]),
@@ -248,6 +244,27 @@ class DblTools(commands.Cog):
                 user=user, bot=self.bot.user
             )
             await channel.send(msg)
+
+        if global_config["support_server_role"]["role_id"]:
+            guild = self.bot.get_guild(global_config["support_server_role"]["guild_id"])
+            member = guild.get_member(int(data["user"]))
+            if not member:
+                return
+            try:
+                await member.add_roles(
+                    guild.get_role(config["support_server_role"]["role_id"]),
+                    reason=f"Top.gg {self.bot.user.name} upvoter.",
+                )
+            except discord.Forbidden:
+                await self.bot.send_to_owners(
+                    _(
+                        "It seems that I no longer have permissions to add roles for Top.gg upvoters "
+                        "in {} `{}`. Role rewards has been disabled."
+                    ).format(guild, guild.id)
+                )
+                async with self.config.all() as config:
+                    config["support_server_role"]["guild_id"] = None
+                    config["support_server_role"]["role_id"] = None
 
     @commands.Cog.listener()
     async def on_dbl_test(self, data: dict):
@@ -615,7 +632,6 @@ class DblTools(commands.Cog):
             return
         credits_name = await bank.get_currency_name(ctx.guild)
         weekend = check_weekend() and config["daily_rewards"]["weekend_bonus_toggled"]
-        voted = await self.config.user(author).voted()
         maybe_weekend_bonus = ""
         if weekend:
             maybe_weekend_bonus = _(" and the week-end bonus of {} {}").format(
