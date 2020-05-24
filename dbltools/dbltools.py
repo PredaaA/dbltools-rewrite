@@ -252,7 +252,7 @@ class DblTools(commands.Cog):
                 return
             try:
                 await member.add_roles(
-                    guild.get_role(config["support_server_role"]["role_id"]),
+                    guild.get_role(global_config["support_server_role"]["role_id"]),
                     reason=f"Top.gg {self.bot.user.name} upvoter.",
                 )
             except discord.Forbidden:
