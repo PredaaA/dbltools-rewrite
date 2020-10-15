@@ -387,6 +387,12 @@ class DblTools(commands.Cog):
     @dailyrewards.command()
     async def toggle(self, ctx: commands.Context):
         """Set wether you want [p]daily command usable or not."""
+        if not await bank.is_global():
+            return await ctx.send(
+                _(
+                    "The bot's bank need to be global to use this feature.\nPlease use `{prefix}bankset toggleglobal` and try again."
+                ).format(ctx.clean_prefix)
+            )
         toggled = await self.config.daily_rewards.get_raw("toggled")
         await self.config.daily_rewards.set_raw("toggled", value=not toggled)
         msg = _("Daily command enabled.") if not toggled else _("Daily command disabled.")
@@ -395,6 +401,12 @@ class DblTools(commands.Cog):
     @dailyrewards.command()
     async def amount(self, ctx: commands.Context, amount: int = None):
         """Set the amount of currency that users will receive on daily rewards."""
+        if not await bank.is_global():
+            return await ctx.send(
+                _(
+                    "The bot's bank need to be global to use this feature.\nPlease use `{prefix}bankset toggleglobal` and try again."
+                ).format(ctx.clean_prefix)
+            )
         if not amount:
             return await ctx.send_help()
         if amount >= await bank.get_max_balance():
@@ -405,6 +417,12 @@ class DblTools(commands.Cog):
     @dailyrewards.command()
     async def weekend(self, ctx: commands.Context):
         """Set weekend bonus."""
+        if not await bank.is_global():
+            return await ctx.send(
+                _(
+                    "The bot's bank need to be global to use this feature.\nPlease use `{prefix}bankset toggleglobal` and try again."
+                ).format(ctx.clean_prefix)
+            )
         toggled = await self.config.daily_rewards.get_raw("weekend_bonus_toggled")
         await self.config.daily_rewards.set_raw("weekend_bonus_toggled", value=not toggled)
         msg = _("Weekend bonus enabled.") if not toggled else _("Weekend bonus disabled.")
@@ -413,6 +431,12 @@ class DblTools(commands.Cog):
     @dailyrewards.command()
     async def weekendamount(self, ctx: commands.Context, amount: int = None):
         """Set the amount of currency that users will receive on week-end bonus."""
+        if not await bank.is_global():
+            return await ctx.send(
+                _(
+                    "The bot's bank need to be global to use this feature.\nPlease use `{prefix}bankset toggleglobal` and try again."
+                ).format(ctx.clean_prefix)
+            )
         if not amount:
             return await ctx.send_help()
         if amount >= await bank.get_max_balance():
@@ -420,17 +444,17 @@ class DblTools(commands.Cog):
         await self.config.daily_rewards.set_raw("weekend_bonus_amount", value=amount)
         await ctx.send(_("Weekend bonus amount set to {}").format(amount))
 
-    @commands.command()
+    @commands.command(aliases=["dblinfo"])
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(1, 2, commands.BucketType.user)
-    async def dblinfo(self, ctx: commands.Context, *, bot: discord.User):
+    async def topgginfo(self, ctx: commands.Context, *, bot: discord.User = None):
         """
         Show information of a chosen bot on Top.gg.
 
-        `bot`: Can be a mention or ID of a bot.
+        `bot`: Can be a mention or ID of a bot. If not provided will default to the used bot.
         """
         if bot is None:
-            return await ctx.send(_("This is not a valid Discord user."))
+            bot = self.bot.user
         if not bot.bot:
             return await ctx.send(_("This is not a bot user, please try again with a bot."))
 
@@ -531,14 +555,14 @@ class DblTools(commands.Cog):
     @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(1, 1, commands.BucketType.user)
-    async def dblwidget(self, ctx: commands.Context, *, bot: discord.User):
+    async def dblwidget(self, ctx: commands.Context, *, bot: discord.User = None):
         """
         Send the widget of a chosen bot on Top.gg.
 
-        `bot`: Can be a mention or ID of a bot.
+        `bot`: Can be a mention or ID of a bot. If not provided will default to the used bot.
         """
         if bot is None:
-            return await ctx.send(_("This is not a valid Discord user."))
+            bot = self.bot.user
         if not bot.bot:
             return await ctx.send(_("This is not a bot user, please try again with a bot."))
 
