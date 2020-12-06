@@ -118,6 +118,14 @@ class DblTools(commands.Cog):
                     )
             await asyncio.sleep(1800)
 
+    async def check_vote(self, user_id: int):
+        async with self.config.user_from_id(user_id).all() as user_data:
+            if (check_vote_time := user_data["next_daily"] < int(time.time())) is True:
+                user_data["voted"] = False
+                user_data["next_daily"] = 0
+
+            return check_vote_time
+
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name: str, api_tokens: Mapping[str, str]):
         if service_name != "dbl":
@@ -694,9 +702,9 @@ class DblTools(commands.Cog):
         daily_config = await self.config.all()
         daily_message = "\n"
         if daily_config["daily_rewards"]["toggled"]:
-            last_vote = await self.config.user(author).next_daily()
-            if last_vote > int(time.time()):
-                delta = humanize_timedelta(seconds=last_vote - cur_time) or "1 second"
+            next_daily = await self.config.user(author).next_daily()
+            if next_daily > int(time.time()):
+                delta = humanize_timedelta(seconds=next_daily - cur_time) or "1 second"
                 daily_message = _("Your daily bonus will be ready in {}.\n\n").format(delta)
             else:
                 async with self.config.user(author).all() as config:
