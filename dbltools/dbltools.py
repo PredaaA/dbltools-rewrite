@@ -120,11 +120,14 @@ class DblTools(commands.Cog):
 
     async def check_vote(self, user_id: int):
         async with self.config.user_from_id(user_id).all() as user_data:
-            if (check_vote_time := user_data["next_daily"] < int(time.time())) is True:
+            if user_data["next_daily"] < int(time.time()):
                 user_data["voted"] = False
                 user_data["next_daily"] = 0
+            
+            if user_data["voted"]:
+                return True
 
-            return check_vote_time
+            return False
 
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name: str, api_tokens: Mapping[str, str]):
