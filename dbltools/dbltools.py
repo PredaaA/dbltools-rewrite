@@ -123,11 +123,8 @@ class DblTools(commands.Cog):
             if user_data["next_daily"] < int(time.time()):
                 user_data["voted"] = False
                 user_data["next_daily"] = 0
-            
-            if user_data["voted"]:
-                return True
 
-            return False
+            return user_data["voted"]
 
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name: str, api_tokens: Mapping[str, str]):
